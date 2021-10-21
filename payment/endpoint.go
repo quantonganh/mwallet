@@ -12,13 +12,13 @@ import (
 type sendPayment struct {
 	// required: true
 	// example: bob123
-	FromAccount string
+	FromAccount string `json:"from_account"`
 	// required: true
 	// example: alice456
-	ToAccount string
+	ToAccount string `json:"to_account"`
 	// required: true
 	// example: 50.00
-	Amount    float64
+	Amount    float64 `json:"amount"`
 }
 
 func makeSendPaymentEndpoint(s Service) endpoint.Endpoint {
