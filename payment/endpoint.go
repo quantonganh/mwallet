@@ -31,16 +31,16 @@ type findRequest struct {
 	accountID string
 }
 
-type findResponse struct {
-	Payments []*mwallet.Payment
-	Err error
+type FindResponse struct {
+	Payments []*mwallet.Payment `json:"payments"`
+	Err error `json:"error"`
 }
 
 func makeFindPaymentEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(findRequest)
 		payments, err := s.Find(req.accountID)
-		return findResponse{
+		return FindResponse{
 			Payments: payments,
 			Err: err,
 		}, nil
