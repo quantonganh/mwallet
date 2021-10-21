@@ -3,7 +3,6 @@ package postgresql
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	_ "github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -14,6 +13,17 @@ import (
 )
 
 const (
+	paymentDirectionIncoming = "incoming"
+	paymentDirectionOutgoing = "outgoing"
+)
+
+var (
+	errNegativeAmount = errors.New("Cannot transfer negative amount")
+	errDifferentCurrencies = errors.New("Cannot transfer between different currencies")
+	errNotEnoughMoney = errors.New("Not enough money on your account")
+)
+
+const (
 	sqlInsertAccount = `INSERT INTO account (id, balance, currency) VALUES ($1, $2, $3)`
 	sqlSelectAccount = `SELECT "id", "balance", "currency" FROM account WHERE id=$1`
 	sqlSelectForUpdateAccount = `SELECT "id", "balance", "currency" FROM account WHERE id=$1 FOR UPDATE`
@@ -21,9 +31,9 @@ const (
 	sqlSelectAllAccounts = `SELECT "id", "balance", "currency" from account`
 	sqlDeleteAccount = `DELETE FROM account WHERE id=$1`
 
-	sqlInsertPayment = `INSERT INTO payment(from_account, to_account, amount) VALUES ($1, $2, $3)`
-	sqlSelectPaymentsByAccount = `SELECT id, from_account, to_account, amount FROM payment WHERE from_account=$1 OR to_account=$1`
-	sqlSelectAllPayments = `SELECT id, from_account, to_account, amount FROM payment`
+	sqlInsertPayment = `INSERT INTO payment(account, amount, from_account, to_account, direction) VALUES ($1, $2, $3, $4, $5)`
+	sqlSelectPaymentsByAccount = `SELECT id, account, amount, from_account, to_account, direction FROM payment WHERE account=$1`
+	sqlSelectAllPayments = `SELECT id, account, amount, from_account, to_account FROM payment`
 )
 
 type accountRepository struct {
@@ -36,6 +46,7 @@ func NewAccountRepository(db *sql.DB) account.Repository {
 	}
 }
 
+// Create creates new account
 func (r *accountRepository) Create(a *mwallet.Account) error {
 	_, err := r.db.Exec(sqlInsertAccount, a.ID, a.Balance, a.Currency)
 	if err != nil {
@@ -44,6 +55,7 @@ func (r *accountRepository) Create(a *mwallet.Account) error {
 	return nil
 }
 
+// Find finds account base on ID
 func (r *accountRepository) Find(id string) (*mwallet.Account, error) {
 	var (
 		balance float64
@@ -78,9 +90,10 @@ func (r *accountRepository) getForUpdate(id string) (*mwallet.Account, error) {
 	}, nil
 }
 
+// Transfer send a payment from one account to another
 func (r *accountRepository) Transfer(fromAccountID, toAccountID string, amount float64) error {
 	if amount < 0 {
-		return errors.New("Amount must be positive.")
+		return errNegativeAmount
 	}
 
 	fromAccount, err := r.getForUpdate(fromAccountID)
@@ -88,7 +101,7 @@ func (r *accountRepository) Transfer(fromAccountID, toAccountID string, amount f
 		return err
 	}
 	if fromAccount.Balance < amount {
-		return fmt.Errorf("%s do not have enough money to transfer %f", fromAccountID, amount)
+		return errNotEnoughMoney
 	}
 
 	toAccount, err := r.getForUpdate(toAccountID)
@@ -97,7 +110,7 @@ func (r *accountRepository) Transfer(fromAccountID, toAccountID string, amount f
 	}
 
 	if fromAccount.Currency != toAccount.Currency {
-		return errors.New("Only payments without the same currency are supported")
+		return errDifferentCurrencies
 	}
 
 	ctx := context.Background()
@@ -118,7 +131,13 @@ func (r *accountRepository) Transfer(fromAccountID, toAccountID string, amount f
 		return err
 	}
 
-	_, err = r.db.Exec(sqlInsertPayment, fromAccountID, toAccountID, amount)
+	_, err = r.db.Exec(sqlInsertPayment, fromAccountID, amount, sql.NullString{}, toAccountID, paymentDirectionOutgoing)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	_, err = r.db.Exec(sqlInsertPayment, toAccountID, amount, fromAccountID, sql.NullString{}, paymentDirectionIncoming)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
@@ -131,6 +150,7 @@ func (r *accountRepository) Transfer(fromAccountID, toAccountID string, amount f
 	return nil
 }
 
+// FindAll finds all accounts
 func (r *accountRepository) FindAll() ([]*mwallet.Account, error) {
 	rows, err := r.db.Query(sqlSelectAllAccounts)
 	if err != nil {
@@ -159,6 +179,7 @@ func (r *accountRepository) FindAll() ([]*mwallet.Account, error) {
 	return accounts, nil
 }
 
+// Delete deletes an account
 func (r *accountRepository) Delete(id string) error {
 	_, err := r.db.Exec(sqlDeleteAccount, id)
 	if err != nil {
@@ -171,20 +192,14 @@ type paymentRepository struct {
 	db *sql.DB
 }
 
+// NewPaymentRepository creates new payment repository
 func NewPaymentRepository(db *sql.DB) payment.Repository {
 	return &paymentRepository{
 		db: db,
 	}
 }
 
-func (r *paymentRepository) Create(payment *mwallet.Payment) error {
-	_, err := r.db.Exec(sqlInsertPayment, payment.FromAccount, payment.ToAccount, payment.Amount)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
+// Find finds payments relate to an account
 func (r *paymentRepository) Find(accountID string) ([]*mwallet.Payment, error) {
 	rows, err := r.db.Query(sqlSelectPaymentsByAccount, accountID)
 	if err != nil {
@@ -195,23 +210,28 @@ func (r *paymentRepository) Find(accountID string) ([]*mwallet.Payment, error) {
 	for rows.Next() {
 		var (
 			id string
-			fromAccount string
-			toAccount string
+			account string
 			amount float64
+			fromAccount sql.NullString
+			toAccount sql.NullString
+			direction string
 		)
-		if err := rows.Scan(&id, &fromAccount, &toAccount, &amount); err != nil {
+		if err := rows.Scan(&id, &account, &amount, &fromAccount, &toAccount, &direction); err != nil {
 			return nil, err
 		}
 		payments = append(payments, &mwallet.Payment{
 			ID:          id,
-			FromAccount: fromAccount,
-			ToAccount:   toAccount,
+			Account: account,
 			Amount:      amount,
+			FromAccount: fromAccount.String,
+			ToAccount:   toAccount.String,
+			Direction: direction,
 		})
 	}
 	return payments, nil
 }
 
+// FindAll finds all payments
 func (r *paymentRepository) FindAll() ([]*mwallet.Payment, error) {
 	rows, err := r.db.Query(sqlSelectAllPayments)
 	if err != nil {
