@@ -62,3 +62,27 @@ func makeListAccountsEndpoint(s Service) endpoint.Endpoint {
 		}, nil
 	}
 }
+
+type deleteAccountRequest struct {
+	ID string
+}
+
+type deleteAccountResponse struct {
+	Err error `json:"error"`
+}
+
+func makeDeleteAccountEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(deleteAccountRequest)
+		err := s.DeleteAccount(req.ID)
+		if err != nil {
+			return deleteAccountResponse{
+				Err: err,
+			}, err
+		}
+		return deleteAccountResponse{
+			Err: nil,
+		}, nil
+	}
+}
+

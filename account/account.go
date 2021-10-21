@@ -10,5 +10,6 @@ type Repository interface {
 	Find(id string) (*mwallet.Account, error)
 	Transfer(fromAccountID, toAccountID string, amount float64) error
 	FindAll() ([]*mwallet.Account, error)
+	Delete(id string) error
 }
 

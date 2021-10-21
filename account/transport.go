@@ -16,6 +16,7 @@ import (
 
 var errBadRoute = errors.New("bad route")
 
+// MakeHandler creates new HTTP handler for account
 func MakeHandler(as Service, logger kitlog.Logger) http.Handler {
 	opts := []kithttp.ServerOption{
 		kithttp.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
@@ -42,10 +43,18 @@ func MakeHandler(as Service, logger kitlog.Logger) http.Handler {
 		opts...
 	)
 
+	deleteAccountHandler := kithttp.NewServer(
+		makeDeleteAccountEndpoint(as),
+		decodeDeleteAccountRequest,
+		encodeResponse,
+		opts...
+	)
+
 	r := mux.NewRouter()
 	r.Handle("/opening/accounts", addAccountHandler).Methods(http.MethodPost)
 	r.Handle("/opening/accounts/{id}", findAccountHandler).Methods(http.MethodGet)
 	r.Handle("/opening/accounts", listAccountsHandler).Methods(http.MethodGet)
+	r.Handle("/opening/accounts/{id}", deleteAccountHandler).Methods(http.MethodDelete)
 
 	return r
 }
@@ -76,6 +85,17 @@ func decodeFindAccountRequest(_ context.Context, r *http.Request) (interface{}, 
 
 func decodeListAccountsRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	return listAccountsRequest{}, nil
+}
+
+func decodeDeleteAccountRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	vars := mux.Vars(r)
+	id, ok := vars["id"]
+	if !ok {
+		return nil, errBadRoute
+	}
+	return deleteAccountRequest{
+		ID: id,
+	}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

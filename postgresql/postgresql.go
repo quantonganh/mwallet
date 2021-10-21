@@ -19,6 +19,7 @@ const (
 	sqlSelectForUpdateAccount = `SELECT "id", "balance", "currency" FROM account WHERE id=$1 FOR UPDATE`
 	sqlUpdateAccount     = `UPDATE account SET balance=$1 WHERE id=$2`
 	sqlSelectAllAccounts = `SELECT "id", "balance", "currency" from account`
+	sqlDeleteAccount = `DELETE FROM account WHERE id=$1`
 
 	sqlInsertPayment = `INSERT INTO payment(from_account, to_account, amount) VALUES ($1, $2, $3)`
 	sqlSelectPaymentsByAccount = `SELECT id, from_account, to_account, amount FROM payment WHERE from_account=$1 OR to_account=$1`
@@ -156,6 +157,14 @@ func (r *accountRepository) FindAll() ([]*mwallet.Account, error) {
 	}
 
 	return accounts, nil
+}
+
+func (r *accountRepository) Delete(id string) error {
+	_, err := r.db.Exec(sqlDeleteAccount, id)
+	if err != nil {
+		return errors.Wrapf(err, "failed to delete account: %s", id)
+	}
+	return nil
 }
 
 type paymentRepository struct {
