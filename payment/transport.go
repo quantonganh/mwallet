@@ -44,8 +44,54 @@ func MakeHandler(ps Service, logger kitlog.Logger) http.Handler {
 	)
 
 	r := mux.NewRouter()
+	// swagger:operation POST /transferring/payments payments sendPayment
+	// Transfer payment.
+	// ---
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: transfer payment
+	//   in: body
+	//   description: payment payload
+	//   schema:
+	//     "$ref": "#/definitions/sendPayment"
+	//   required: true
+	// responses:
+	//     '200':
+	//         schema:
+	//           "$ref": "#/definitions/sendPayment"
+	//     '500':
+	//         description: Internal server error
 	r.Handle("/transferring/payments", sendPaymentHandler).Methods(http.MethodPost)
+	// swagger:operation GET /transferring/payments/{id} payments findPayment
+	// Find payment.
+	// ---
+	// produces:
+	// - application/json
+	// parameters:
+	// - name: id
+	//   in: path
+	//   description: id of the account
+	//   type: string
+	//   required: true
+	// responses:
+	//     '200':
+	//         schema:
+	//           "$ref": "#/definitions/findPaymentResponse"
+	//     '500':
+	//         description: Internal server error
 	r.Handle("/transferring/payments/{id}", findPaymentHandler).Methods(http.MethodGet)
+	// swagger:operation GET /transferring/payments payments listPayments
+	// List all payments.
+	// ---
+	// produces:
+	// - application/json
+	// responses:
+	//     '200':
+	//         schema:
+	//           "$ref": "#/definitions/listPaymentResponse"
+	//     '500':
+	//         description: Internal server error
 	r.Handle("/transferring/payments", listPaymentsHandler).Methods(http.MethodGet)
 
 	return r
@@ -57,10 +103,10 @@ func decodeSendPaymentRequest(_ context.Context, r *http.Request) (interface{}, 
 		return nil, err
 	}
 
-	return sendRequest{
-		fromAccount: body.FromAccount,
-		toAccount:   body.ToAccount,
-		amount:      body.Amount,
+	return sendPayment{
+		FromAccount: body.FromAccount,
+		ToAccount:   body.ToAccount,
+		Amount:      body.Amount,
 	}, nil
 }
 
@@ -70,13 +116,13 @@ func decodeFindPaymentRequest(_ context.Context, r *http.Request) (interface{}, 
 	if !ok {
 		return nil, errBadRoute
 	}
-	return findRequest{
-		accountID: id,
+	return findPaymentRequest{
+		AccountID: id,
 	}, nil
 }
 
 func decodeListRequest(_ context.Context, r *http.Request) (interface{}, error) {
-	return listRequest{}, nil
+	return listPaymentRequest{}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

@@ -8,57 +8,67 @@ import (
 	"github.com/quantonganh/mwallet"
 )
 
-type sendRequest struct {
-	fromAccount string
-	toAccount string
-	amount float64
+// swagger:model sendPayment
+type sendPayment struct {
+	// required: true
+	// example: bob123
+	FromAccount string
+	// required: true
+	// example: alice456
+	ToAccount string
+	// required: true
+	// example: 50.00
+	Amount    float64
 }
-
-type sendResponse struct {}
 
 func makeSendPaymentEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		req := request.(sendRequest)
-		err := s.Send(req.fromAccount, req.toAccount, req.amount)
+		req := request.(sendPayment)
+		err := s.Send(req.FromAccount, req.ToAccount, req.Amount)
 		if err != nil {
 			return nil, err
 		}
-		return sendResponse{}, nil
+		return req, nil
 	}
 }
 
-type findRequest struct {
-	accountID string
+// swagger:model findPaymentRequest
+type findPaymentRequest struct {
+	// required: true
+	// example: bob123
+	AccountID string
 }
 
-type FindResponse struct {
+// swagger:model findPaymentResponse
+type FindPaymentResponse struct {
 	Payments []*mwallet.Payment `json:"payments"`
 	Err error `json:"error"`
 }
 
 func makeFindPaymentEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		req := request.(findRequest)
-		payments, err := s.Find(req.accountID)
-		return FindResponse{
+		req := request.(findPaymentRequest)
+		payments, err := s.Find(req.AccountID)
+		return FindPaymentResponse{
 			Payments: payments,
 			Err: err,
 		}, nil
 	}
 }
 
-type listRequest struct {}
+type listPaymentRequest struct {}
 
-type listResponse struct {
+// swagger:model listPaymentResponse
+type listPaymentResponse struct {
 	Payments []*mwallet.Payment `json:"payments"`
 	Err error `json:"error"`
 }
 
 func makeListPaymentsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		_ = request.(listRequest)
+		_ = request.(listPaymentRequest)
 		payments, err := s.List()
-		return listResponse{
+		return listPaymentResponse{
 			Payments: payments,
 			Err:      err,
 		}, nil

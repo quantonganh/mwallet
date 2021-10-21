@@ -116,7 +116,7 @@ func getPayments(t *testing.T, accountID string) []*mwallet.Payment {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var findResp payment.FindResponse
+	var findResp payment.FindPaymentResponse
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&findResp))
 	require.NoError(t, findResp.Err)
 

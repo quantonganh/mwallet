@@ -8,29 +8,37 @@ import (
 	"github.com/quantonganh/mwallet"
 )
 
-type addAccountRequest struct {
-	id string
-	balance float64
-	currency string
+// swagger:model addAccount
+type addAccount struct {
+	// required: true
+	// example: bob123
+	ID string
+	// required: true
+	// example: 100.00
+	Balance float64
+	// required: true
+	// example: USD
+	Currency string
 }
-
-type addAccountResponse struct {}
 
 func makeAddAccountEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		req := request.(addAccountRequest)
+		req := request.(addAccount)
 		if err := s.AddAccount(&mwallet.Account{
-			ID:       req.id,
-			Balance:  req.balance,
-			Currency: req.currency,
+			ID:       req.ID,
+			Balance:  req.Balance,
+			Currency: req.Currency,
 		}); err != nil {
 			return nil, err
 		}
-		return addAccountResponse{}, nil
+		return req, nil
 	}
 }
 
+// swagger:model getAccountRequest
 type getAccountRequest struct {
+	// required: true
+	// example: bob123
 	ID string
 }
 
@@ -47,6 +55,7 @@ func makeFindAccountEndpoint(s Service) endpoint.Endpoint {
 
 type listAccountsRequest struct {}
 
+// swagger:model listAccountsResponse
 type listAccountsResponse struct {
 	Accounts []*mwallet.Account `json:"accounts"`
 	Err error `json:"error"`
@@ -63,10 +72,14 @@ func makeListAccountsEndpoint(s Service) endpoint.Endpoint {
 	}
 }
 
+// swagger:model deleteAccountRequest
 type deleteAccountRequest struct {
+	// required: true
+	// example: bob123
 	ID string
 }
 
+// swagger:model deleteAccountResponse
 type deleteAccountResponse struct {
 	Err error `json:"error"`
 }
