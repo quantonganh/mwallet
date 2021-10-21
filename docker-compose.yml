@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:14.0-alpine3.14
+    environment:
+      POSTGRES_PASSWORD: mwallet
+      POSTGRES_DB: mwallet
+    ports:
+      - 5432:5432
+    volumes:
+      - ./postgresql/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  mwallet:
+    image: quantonganh/mwallet:main
+    container_name: mwallet
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yml:/config.yml
+    depends_on:
+      postgres:
+        condition: service_healthy
