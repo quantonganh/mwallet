@@ -68,6 +68,20 @@ func TestFindAllAccounts(t *testing.T) {
 	assert.Equal(t, "USD", accounts[0].Currency)
 }
 
+func TestDeleteAccount(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	account := &mwallet.Account{
+		ID: "bob123",
+	}
+	mock.ExpectExec(regexp.QuoteMeta(sqlDeleteAccount)).WithArgs(account.ID).WillReturnResult(sqlmock.NewResult(1, 1))
+
+	accountRepo := NewAccountRepository(db)
+	require.NoError(t, accountRepo.Delete("bob123"))
+}
+
 func TestTransfer(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
